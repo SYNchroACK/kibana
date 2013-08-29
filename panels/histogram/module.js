@@ -426,11 +426,15 @@ angular.module('kibana.histogram', [])
 
       var $tooltip = $('<div>');
       elem.bind("plothover", function (event, pos, item) {
+        var value;
         if (item) {
+          value = scope.panel.stack
+            ? item.datapoint[1] - item.datapoint[2]
+            : item.datapoint[1];
           $tooltip
             .html(
               kbn.query_color_dot(item.series.color, 15) + ' ' +
-              item.datapoint[1].toFixed(0) + " @ " +
+              value.toFixed(0) + " @ " +
               moment(item.datapoint[0]).format('MM/DD HH:mm:ss')
             )
             .place_tt(pos.pageX, pos.pageY);
