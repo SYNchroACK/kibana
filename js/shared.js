@@ -201,9 +201,14 @@
     return str;
   };
 
+  kbn.interval_regex = /(\d+(?:\.\d+)?)([Mwdhmsy])/;
+
   // histogram & trends
   kbn.interval_to_seconds = function(string) {
-    var matches = string.match(/(\d+(?:\.\d+)?)([Mwdhmsy])/);
+    var matches = string.match(kbn.interval_regex);
+    if (!matches) {
+      throw new Error('Invalid interval string, expexcting a number followed by one of "Mwdhmsy"');
+    }
     switch (matches[2]) {
     case 'y':
       return matches[1]*31536000;

@@ -646,10 +646,7 @@ angular.module('kibana.histogram', [])
     this.string = interval_string;
     this.ms = kbn.interval_to_seconds(interval_string);
 
-    var matches = interval_string.match(/(\d+(?:\.\d+)?)([Mwdhmsy])/);
-    if (!matches) {
-      throw new Error('Invalid interval string, expexcting a number followed by one of "Mwdhmsy"');
-    }
+    var matches = interval_string.match(kbn.interval_regex);
     this.count = base10Int(matches[1]);
     this.type = matches[2];
 
