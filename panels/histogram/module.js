@@ -325,7 +325,7 @@ angular.module('kibana.histogram', [])
         } catch(e) {return;}
 
         // Set barwidth based on specified interval
-        var barwidth = kbn.interval_to_seconds(scope.panel.interval)*1000;
+        var barwidth = kbn.interval_to_ms(scope.panel.interval);
 
         var scripts = $LAB.script("common/lib/panels/jquery.flot.js").wait()
           .script("common/lib/panels/jquery.flot.time.js")
@@ -417,17 +417,16 @@ angular.module('kibana.histogram', [])
       }
 
       function time_format(interval) {
-        var _int = kbn.interval_to_seconds(interval);
-        if(_int >= 2628000) {
+        var _int = kbn.interval_to_ms(interval);
+        if(_int >= 2628000000) {
           return "%m/%y";
         }
-        if(_int >= 86400) {
+        if(_int >= 86400000) {
           return "%m/%d/%y";
         }
-        if(_int >= 60) {
+        if(_int >= 60000) {
           return "%H:%M<br>%m/%d";
         }
-
         return "%H:%M:%S";
       }
 
@@ -644,7 +643,7 @@ angular.module('kibana.histogram', [])
    */
   function Interval(interval_string) {
     this.string = interval_string;
-    this.ms = kbn.interval_to_seconds(interval_string);
+    this.ms = kbn.interval_to_ms(interval_string);
 
     var matches = interval_string.match(kbn.interval_regex);
     this.count = base10Int(matches[1]);
