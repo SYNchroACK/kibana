@@ -395,9 +395,13 @@ angular.module('kibana.histogram', [])
             // so that the stacking happens in the proper order
             var required_times = [];
             if (scope.data.length > 1) {
-              required_times = _.uniq(Array.prototype.concat.apply([], _.map(scope.data, function (query) {
+              required_times = Array.prototype.concat.apply([], _.map(scope.data, function (query) {
                 return query.time_series.getOrderedTimes();
-              })).sort(), true);
+              }));
+              required_times = _.uniq(required_times.sort(function (a, b) {
+                // decending numeric sort
+                return a-b;
+              }), true);
             }
 
             for (var i = 0; i < scope.data.length; i++) {
@@ -501,7 +505,7 @@ angular.module('kibana.histogram', [])
     });
 
     // the expected differenece between readings.
-    this.interval_ms = base10Int(kbn.interval_to_seconds(opts.interval)) * 1000;
+    this.interval = new Interval(opts.interval);
 
     // will keep all values here, keyed by their time
     this._data = {};
@@ -537,7 +541,10 @@ angular.module('kibana.histogram', [])
     if (_.isArray(include)) {
       times = times.concat(include);
     }
-    return _.uniq(times.sort(), true);
+    return _.uniq(times.sort(function (a, b) {
+      // decending numeric sort
+      return a - b;
+    }), true);
   };
 
   /**
@@ -567,7 +574,7 @@ angular.module('kibana.histogram', [])
       this      // context
     );
 
-    // if the start and end of the pairs are inside either the start or end time,
+    // if the first or last pair is inside either the start or end time,
     // add those times to the series with null values so the graph will stretch to contain them.
     if (this.start_time && (pairs.length === 0 || pairs[0][0] > this.start_time)) {
       pairs.unshift([this.start_time, null]);
@@ -591,7 +598,7 @@ angular.module('kibana.histogram', [])
     // check for previous measurement
     if (i > 0) {
       prev = times[i - 1];
-      expected_prev = time - this.interval_ms;
+      expected_prev = this.interval.before(time);
       if (prev < expected_prev) {
         result.push([expected_prev, 0]);
       }
@@ -603,7 +610,7 @@ angular.module('kibana.histogram', [])
     // check for next measurement
     if (times.length > i) {
       next = times[i + 1];
-      expected_next = time + this.interval_ms;
+      expected_next = this.interval.after(time);
       if (next > expected_next) {
         result.push([expected_next, 0]);
       }
@@ -623,12 +630,63 @@ angular.module('kibana.histogram', [])
 
     result.push([ times[i], this._data[times[i]] || 0 ]);
     next = times[i + 1];
-    expected_next = times[i] + this.interval_ms;
-    for(; times.length > i && next > expected_next; expected_next+= this.interval_ms) {
+    expected_next = this.interval.after(time);
+    for(; times.length > i && next > expected_next; expected_next = this.interval.after(expected_next)) {
       result.push([expected_next, 0]);
     }
 
     return result;
+  };
+
+  /**
+   * manages the interval logic
+   * @param {[type]} interval_string  An interval string in the format '1m', '1y', etc
+   */
+  function Interval(interval_string) {
+    this.string = interval_string;
+    this.ms = kbn.interval_to_seconds(interval_string);
+
+    var matches = interval_string.match(/(\d+(?:\.\d+)?)([Mwdhmsy])/);
+    if (!matches) {
+      throw new Error('Invalid interval string, expexcting a number followed by one of "Mwdhmsy"');
+    }
+    this.count = base10Int(matches[1]);
+    this.type = matches[2];
+
+    // does the length of the interval change based on the current time?
+    if (this.type === 'y' || this.type === 'M') {
+      // we will just modify this time object rather that create a new one constantly
+      this.get = this.get_complex;
+      this.date = new Date(0);
+    } else {
+      this.get = this.get_simple;
+    }
+  }
+  Interval.prototype = {
+    toString: function () {
+      return this.string;
+    },
+    after: function(current_ms) {
+      return this.get(current_ms, this.count);
+    },
+    before: function (current_ms) {
+      return this.get(current_ms, -this.count);
+    },
+    get_complex: function (current, delta) {
+      this.date.setTime(current);
+      switch(this.type) {
+      case 'M':
+        this.date.setUTCMonth(this.date.getUTCMonth() + delta);
+        break;
+      case 'y':
+        this.date.setUTCFullYear(this.date.getUTCFullYear() + delta);
+        break;
+      }
+      return this.date.getTime();
+    },
+    get_simple: function (current, delta) {
+      return current + (delta * this.ms);
+    }
   };
 
 });
